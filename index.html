@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0f0d0b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="WD Birthday">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Welcome Drink · День рождения</title>
+<style>
+:root{
+  --bg:#0f0d0b; --bg2:#17130f; --card:#1c1712; --line:#2a2019;
+  --ink:#f3ece0; --ink2:#b9ab97; --mut:#7b6f5f;
+  --amber:#e8a13a; --amber2:#f5c26b; --wine:#8f3a34; --green:#5fa06a; --red:#c85a4e;
+  --mono:'SF Mono',ui-monospace,'Roboto Mono',Menlo,monospace;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  font-size:15px;line-height:1.45;overscroll-behavior-y:none}
+body{padding-bottom:76px}
+h1,h2,h3{margin:0;font-weight:650;letter-spacing:-.01em}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,textarea,select{font-family:inherit;font-size:15px}
+
+/* header */
+header{position:sticky;top:0;z-index:20;background:linear-gradient(180deg,var(--bg) 70%,transparent);
+  padding:14px 16px 10px;border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:baseline;gap:9px}
+.brand .kicker{font-family:var(--mono);font-size:10px;letter-spacing:.22em;
+  text-transform:uppercase;color:var(--amber)}
+.brand h1{font-size:19px}
+.count{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--mut)}
+.who{font-family:var(--mono);font-size:11px;color:var(--ink2);margin-top:3px}
+.who b{color:var(--amber2)} .who button{color:var(--mut);text-decoration:underline;font-size:11px;margin-left:6px}
+
+/* filters */
+.filters{display:flex;gap:7px;overflow-x:auto;padding:10px 16px 4px;scrollbar-width:none}
+.filters::-webkit-scrollbar{display:none}
+.chip{white-space:nowrap;font-size:12.5px;padding:6px 12px;border-radius:20px;
+  border:1px solid var(--line);color:var(--ink2);background:var(--bg2)}
+.chip.on{color:var(--bg);background:var(--amber);border-color:var(--amber);font-weight:600}
+
+/* board */
+main{padding:6px 16px 20px}
+.group{margin-top:18px}
+.group-h{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+.group-h .dot{width:9px;height:9px;border-radius:3px}
+.group-h h2{font-size:14px;text-transform:uppercase;letter-spacing:.06em}
+.group-h .g-count{font-family:var(--mono);font-size:11px;color:var(--mut);margin-left:auto}
+
+.task{background:var(--card);border:1px solid var(--line);border-radius:13px;
+  padding:12px 13px;margin-bottom:9px;position:relative}
+.task.done{opacity:.55}
+.task .top{display:flex;gap:10px;align-items:flex-start}
+.check{flex:0 0 auto;width:23px;height:23px;border-radius:7px;border:1.5px solid var(--mut);
+  margin-top:1px;display:grid;place-items:center;font-size:13px;color:transparent}
+.check.on{background:var(--green);border-color:var(--green);color:#fff}
+.task .ttl{font-weight:600;font-size:15px}
+.task.done .ttl{text-decoration:line-through}
+.task .desc{color:var(--ink2);font-size:13px;margin-top:3px}
+.meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px;align-items:center}
+.tag{font-family:var(--mono);font-size:11px;padding:3px 8px;border-radius:6px;background:var(--bg2);color:var(--ink2)}
+.tag.dl{color:var(--amber2)} .tag.dl.over{color:var(--red)}
+.tag.asg{background:transparent;border:1px solid var(--line)}
+.tag.asg.me{border-color:var(--amber);color:var(--amber2)}
+.tag.st{color:var(--mut)}
+.tag.cm{margin-left:auto;color:var(--mut)}
+
+/* detail sheet */
+.sheet-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:40;display:none;backdrop-filter:blur(2px)}
+.sheet-bg.on{display:block}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:50;background:var(--bg2);
+  border-radius:20px 20px 0 0;border-top:1px solid var(--line);
+  max-height:92vh;overflow-y:auto;transform:translateY(100%);transition:transform .28s cubic-bezier(.2,.8,.2,1);
+  padding:8px 18px 30px}
+.sheet.on{transform:translateY(0)}
+.grip{width:38px;height:4px;border-radius:2px;background:var(--line);margin:6px auto 12px}
+.sheet h2{font-size:18px;margin-bottom:4px}
+.sheet .sub{color:var(--ink2);font-size:14px;margin-bottom:14px}
+.field{margin-bottom:13px}
+.field label{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--mut);margin-bottom:5px}
+.field input,.field textarea,.field select{width:100%;background:var(--card);border:1px solid var(--line);
+  color:var(--ink);border-radius:9px;padding:10px 12px;outline:none}
+.field input:focus,.field textarea:focus{border-color:var(--amber)}
+.row2{display:flex;gap:10px} .row2>*{flex:1}
+.stages .stage{display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid var(--line)}
+.stages .sc{width:20px;height:20px;border-radius:6px;border:1.5px solid var(--mut);
+  display:grid;place-items:center;font-size:12px;color:transparent;flex:0 0 auto}
+.stages .sc.on{background:var(--green);border-color:var(--green);color:#fff}
+.stages .stage span{flex:1;font-size:14px}
+.stages .stage.on span{text-decoration:line-through;color:var(--mut)}
+.stages .del{color:var(--mut);font-size:18px;padding:0 4px}
+.addstage{display:flex;gap:8px;margin-top:8px}
+.addstage input{flex:1}
+.comments .cm-item{padding:9px 0;border-bottom:1px solid var(--line)}
+.cm-item .cm-h{font-family:var(--mono);font-size:11px;color:var(--amber2)}
+.cm-item .cm-h time{color:var(--mut);margin-left:7px}
+.cm-item p{margin:3px 0 0;font-size:14px;color:var(--ink)}
+.cm-add{display:flex;gap:8px;margin-top:10px}
+.cm-add textarea{flex:1;min-height:40px;resize:vertical}
+
+.btn{background:var(--amber);color:#1a1206;font-weight:650;border-radius:10px;padding:11px 16px;font-size:15px}
+.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--ink2);font-weight:500}
+.btn.sm{padding:9px 13px;font-size:13.5px}
+.btn.wine{background:var(--wine);color:#fff}
+.btn.full{width:100%}
+.sheet-actions{display:flex;gap:10px;margin-top:18px}
+
+/* gantt */
+.gantt-wrap{overflow-x:auto;padding:4px 0 20px}
+.gantt{min-width:640px;position:relative}
+.g-head{display:flex;font-family:var(--mono);font-size:10px;color:var(--mut);
+  border-bottom:1px solid var(--line);padding-bottom:5px;margin-bottom:8px}
+.g-row{display:flex;align-items:center;height:32px;position:relative}
+.g-label{width:150px;flex:0 0 150px;font-size:12.5px;color:var(--ink2);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:8px}
+.g-track{flex:1;position:relative;height:100%}
+.g-bar{position:absolute;top:7px;height:16px;border-radius:5px;min-width:6px;
+  display:flex;align-items:center;padding:0 6px;font-size:9px;color:#1a1206;font-family:var(--mono);overflow:hidden}
+.g-today{position:absolute;top:0;bottom:0;width:2px;background:var(--red);z-index:5}
+.g-today .lbl{position:absolute;top:-14px;left:-14px;font-family:var(--mono);font-size:9px;color:var(--red)}
+
+/* nav */
+nav{position:fixed;bottom:0;left:0;right:0;z-index:30;background:var(--bg);
+  border-top:1px solid var(--line);display:flex;padding:6px 0 max(6px,env(safe-area-inset-bottom))}
+nav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
+  font-size:10px;color:var(--mut);padding:6px 0}
+nav button.on{color:var(--amber)}
+nav button svg{width:22px;height:22px}
+
+.fab{position:fixed;right:18px;bottom:82px;z-index:35;width:54px;height:54px;border-radius:50%;
+  background:var(--amber);color:#1a1206;font-size:30px;display:grid;place-items:center;
+  box-shadow:0 6px 20px rgba(232,161,58,.35)}
+.empty{text-align:center;color:var(--mut);padding:50px 20px;font-size:14px}
+.view{display:none} .view.on{display:block}
+
+/* name gate */
+.gate{position:fixed;inset:0;z-index:100;background:var(--bg);display:none;
+  flex-direction:column;justify-content:center;padding:0 30px;text-align:center}
+.gate.on{display:flex}
+.gate .kicker{font-family:var(--mono);font-size:11px;letter-spacing:.22em;color:var(--amber);text-transform:uppercase}
+.gate h1{font-size:26px;margin:12px 0 8px}
+.gate p{color:var(--ink2);margin:0 0 22px}
+.gate input{width:100%;text-align:center;font-size:18px;background:var(--card);
+  border:1px solid var(--line);color:var(--ink);border-radius:12px;padding:14px;outline:none}
+.gate input:focus{border-color:var(--amber)}
+.gate .btn{margin-top:14px}
+.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:10px;font-size:13px;
+  font-weight:600;z-index:200;opacity:0;transition:.25s;pointer-events:none}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+
+<!-- name gate -->
+<div class="gate" id="gate">
+  <div class="kicker">Welcome Drink · 17 июля</div>
+  <h1>Как тебя зовут?</h1>
+  <p>Имя будет подставляться в задачи и комментарии</p>
+  <input id="gateName" placeholder="Например, Миша" autocomplete="off">
+  <button class="btn" onclick="saveName()">Войти в задачник</button>
+</div>
+
+<header>
+  <div class="brand">
+    <span class="kicker">17.07</span>
+    <h1>День рождения WD</h1>
+    <span class="count" id="hCount">0/0</span>
+  </div>
+  <div class="who">Ты: <b id="whoName">—</b><button onclick="changeName()">сменить</button></div>
+</header>
+
+<!-- BOARD -->
+<div class="view on" id="v-board">
+  <div class="filters" id="filters"></div>
+  <main id="board"><div class="empty">Загрузка…</div></main>
+</div>
+
+<!-- GANTT -->
+<div class="view" id="v-gantt">
+  <main>
+    <div class="group-h" style="margin:14px 0 4px"><h2>Диаграмма Ганта</h2></div>
+    <div class="gantt-wrap"><div class="gantt" id="gantt"></div></div>
+  </main>
+</div>
+
+<button class="fab" id="fab" onclick="openNew()">＋</button>
+
+<nav>
+  <button class="on" id="nav-board" onclick="setView('board')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="16" width="18" height="4" rx="1"/></svg>
+    Задачи
+  </button>
+  <button id="nav-gantt" onclick="setView('gantt')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="6" x2="14" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="12" y2="18"/></svg>
+    Гант
+  </button>
+</nav>
+
+<!-- DETAIL SHEET -->
+<div class="sheet-bg" id="sheetBg" onclick="closeSheet(event)">
+  <div class="sheet" id="sheet" onclick="event.stopPropagation()">
+    <div class="grip"></div>
+    <div id="sheetBody"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Firebase compat SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
+/* ============ FIREBASE CONFIG — подставить после создания проекта ============ */
+const firebaseConfig = {
+  apiKey: "AIzaSyBdFAWEnWNZAK6SKwegW1EBn-967URFnsg",
+  authDomain: "wd-day.firebaseapp.com",
+  databaseURL: "https://wd-day-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "wd-day",
+  storageBucket: "wd-day.firebasestorage.app",
+  messagingSenderId: "586263497395",
+  appId: "1:586263497395:web:812351587edd1b08b03ec6"
+};
+/* ============================================================================ */
+
+let db=null, USING_FIREBASE=false;
+try{ firebase.initializeApp(firebaseConfig); db=firebase.database(); USING_FIREBASE=true; }
+catch(e){ console.warn('Firebase off, локальный режим', e); }
+
+/* ---- groups ---- */
+const GROUPS = [
+  {id:'music',   name:'Музыканты / Lineup', color:'#e8a13a'},
+  {id:'gear',    name:'Оборудование',       color:'#5fa06a'},
+  {id:'promo',   name:'Реклама / Маркетинг',color:'#c85a4e'},
+  {id:'decor',   name:'Оформление',         color:'#b07de0'},
+  {id:'menu',    name:'Меню',               color:'#4fa3d1'},
+  {id:'partners',name:'Партнёры',           color:'#d88fae'},
+];
+const GMAP = Object.fromEntries(GROUPS.map(g=>[g.id,g]));
+const EVENT_DATE = '2026-07-17';
+
+let TASKS = {};       // id -> task
+let ME = localStorage.getItem('wd_name') || '';
+let FILTER = 'all';   // all | groupId | mine | undone
+let openId = null;
+
+/* ---- name gate ---- */
+function initName(){
+  if(ME){ document.getElementById('whoName').textContent = ME; }
+  else { document.getElementById('gate').classList.add('on'); }
+}
+function saveName(){
+  const v=document.getElementById('gateName').value.trim();
+  if(!v){ return; }
+  ME=v; localStorage.setItem('wd_name',v);
+  document.getElementById('whoName').textContent=v;
+  document.getElementById('gate').classList.remove('on');
+}
+function changeName(){
+  const v=prompt('Как тебя зовут?', ME);
+  if(v && v.trim()){ ME=v.trim(); localStorage.setItem('wd_name',ME); document.getElementById('whoName').textContent=ME; render(); }
+}
+
+/* ---- data layer ---- */
+function onData(cb){
+  if(USING_FIREBASE){
+    db.ref('tasks').on('value', s=>{ TASKS = s.val()||{}; cb(); });
+  } else {
+    TASKS = JSON.parse(localStorage.getItem('wd_tasks')||'{}'); cb();
+  }
+}
+function saveTask(id,t){
+  if(USING_FIREBASE){ db.ref('tasks/'+id).set(t); }
+  else { TASKS[id]=t; localStorage.setItem('wd_tasks',JSON.stringify(TASKS)); render(); }
+}
+function patchTask(id,obj){ saveTask(id, {...TASKS[id], ...obj}); }
+function deleteTask(id){
+  if(USING_FIREBASE){ db.ref('tasks/'+id).remove(); }
+  else { delete TASKS[id]; localStorage.setItem('wd_tasks',JSON.stringify(TASKS)); render(); }
+  closeSheet();
+}
+function newId(){ return 't'+Date.now().toString(36)+Math.random().toString(36).slice(2,5); }
+
+/* ---- helpers ---- */
+function fmtDate(d){ if(!d) return '—'; const dt=new Date(d);
+  return dt.toLocaleDateString('ru-RU',{day:'2-digit',month:'short'})+
+    (d.includes('T')&&!d.endsWith('00:00')?' '+dt.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}):'');
+}
+function isOver(d){ return d && new Date(d) < new Date() ; }
+function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('on');
+  clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('on'),1600); }
+
+/* ---- filters bar ---- */
+function renderFilters(){
+  const f=document.getElementById('filters');
+  const chips=[['all','Все'],['mine','Мои'],['undone','Не готово'],...GROUPS.map(g=>[g.id,g.name])];
+  f.innerHTML=chips.map(([id,label])=>
+    `<button class="chip ${FILTER===id?'on':''}" onclick="setFilter('${id}')">${label}</button>`).join('');
+}
+function setFilter(id){ FILTER=id; renderFilters(); renderBoard(); }
+
+/* ---- board ---- */
+function taskMatches(t){
+  if(FILTER==='all') return true;
+  if(FILTER==='mine') return t.assignee===ME;
+  if(FILTER==='undone') return !t.done;
+  return t.group===FILTER;
+}
+function render(){ renderFilters(); renderBoard(); renderGantt(); }
+function renderBoard(){
+  const board=document.getElementById('board');
+  const all=Object.entries(TASKS);
+  const total=all.length, done=all.filter(([,t])=>t.done).length;
+  document.getElementById('hCount').textContent=`${done}/${total}`;
+
+  const list=all.filter(([,t])=>taskMatches(t));
+  if(!list.length){ board.innerHTML=`<div class="empty">Пока пусто.<br>Нажми ＋ чтобы добавить задачу.</div>`; return; }
+
+  let html='';
+  for(const g of GROUPS){
+    const items=list.filter(([,t])=>t.group===g.id)
+      .sort((a,b)=>(a[1].deadline||'z').localeCompare(b[1].deadline||'z'));
+    if(!items.length) continue;
+    html+=`<div class="group"><div class="group-h">
+      <span class="dot" style="background:${g.color}"></span>
+      <h2>${g.name}</h2>
+      <span class="g-count">${items.filter(([,t])=>t.done).length}/${items.length}</span></div>`;
+    for(const [id,t] of items) html+=taskCard(id,t);
+    html+='</div>';
+  }
+  board.innerHTML=html;
+}
+function taskCard(id,t){
+  const cm=t.comments?Object.keys(t.comments).length:0;
+  const stg=t.stages?Object.values(t.stages):[];
+  const sdone=stg.filter(s=>s.done).length;
+  return `<div class="task ${t.done?'done':''}">
+    <div class="top">
+      <button class="check ${t.done?'on':''}" onclick="toggleDone('${id}',event)">✓</button>
+      <div style="flex:1" onclick="openTask('${id}')">
+        <div class="ttl">${esc(t.title)}</div>
+        ${t.description?`<div class="desc">${esc(t.description)}</div>`:''}
+        <div class="meta">
+          <span class="tag dl ${isOver(t.deadline)&&!t.done?'over':''}">⌛ ${fmtDate(t.deadline)}</span>
+          ${t.assignee?`<span class="tag asg ${t.assignee===ME?'me':''}">👤 ${esc(t.assignee)}</span>`
+                       :`<span class="tag asg" onclick="claim('${id}',event)">＋ взять</span>`}
+          ${stg.length?`<span class="tag st">${sdone}/${stg.length} этапов</span>`:''}
+          <span class="tag cm">💬 ${cm}</span>
+        </div>
+      </div>
+    </div></div>`;
+}
+function esc(s){ return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+/* ---- quick actions ---- */
+function toggleDone(id,e){ e.stopPropagation(); patchTask(id,{done:!TASKS[id].done}); }
+function claim(id,e){ e.stopPropagation(); if(!ME){changeName();return;} patchTask(id,{assignee:ME}); toast('Ты ответственный'); }
+
+/* ---- detail sheet ---- */
+function openTask(id){
+  openId=id; const t=TASKS[id]; const g=GMAP[t.group]||{};
+  const stg=t.stages||{}; const cms=t.comments||{};
+  const stgArr=Object.entries(stg);
+  const cmArr=Object.entries(cms).sort((a,b)=>(a[1].ts||0)-(b[1].ts||0));
+  document.getElementById('sheetBody').innerHTML=`
+    <div class="group-h" style="margin-bottom:6px">
+      <span class="dot" style="background:${g.color}"></span>
+      <span class="tag">${g.name||''}</span></div>
+    <h2>${esc(t.title)}</h2>
+    ${t.description?`<div class="sub">${esc(t.description)}</div>`:''}
+
+    <div class="row2">
+      <div class="field"><label>Дедлайн</label>
+        <input type="datetime-local" value="${t.deadline||''}" onchange="patchTask('${id}',{deadline:this.value})"></div>
+      <div class="field"><label>Ответственный</label>
+        <input value="${esc(t.assignee||'')}" placeholder="никто"
+          onchange="patchTask('${id}',{assignee:this.value})">
+      </div>
+    </div>
+    <button class="btn ghost sm" style="margin:-4px 0 12px" onclick="patchTask('${id}',{assignee:ME});openTask('${id}')">Назначить себя (${esc(ME)})</button>
+
+    <div class="field"><label>Этапы · ${stgArr.filter(([,s])=>s.done).length}/${stgArr.length}</label>
+      <div class="stages" id="stages">
+        ${stgArr.map(([sid,s])=>`
+          <div class="stage ${s.done?'on':''}">
+            <button class="sc ${s.done?'on':''}" onclick="toggleStage('${id}','${sid}')">✓</button>
+            <span>${esc(s.text)}</span>
+            <button class="del" onclick="delStage('${id}','${sid}')">×</button>
+          </div>`).join('')}
+      </div>
+      <div class="addstage">
+        <input id="newStage" placeholder="Новый этап…" onkeydown="if(event.key==='Enter')addStage('${id}')">
+        <button class="btn ghost sm" onclick="addStage('${id}')">Добавить</button>
+      </div>
+    </div>
+
+    <button class="btn full ${t.done?'wine':''}" onclick="patchTask('${id}',{done:!TASKS['${id}'].done});openTask('${id}')">
+      ${t.done?'Снять «выполнено»':'✓ Всё готово'}</button>
+
+    <div class="field" style="margin-top:18px"><label>Комментарии · ${cmArr.length}</label>
+      <div class="comments">
+        ${cmArr.map(([,c])=>`<div class="cm-item">
+          <div class="cm-h">${esc(c.author||'?')}<time>${c.ts?new Date(c.ts).toLocaleString('ru-RU',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):''}</time></div>
+          <p>${esc(c.text)}</p></div>`).join('') || '<div style="color:var(--mut);font-size:13px">Пока нет комментариев</div>'}
+      </div>
+      <div class="cm-add">
+        <textarea id="newComment" placeholder="Написать комментарий…"></textarea>
+        <button class="btn sm" onclick="addComment('${id}')">→</button>
+      </div>
+    </div>
+
+    <div class="sheet-actions">
+      <button class="btn ghost sm" onclick="closeSheet()">Закрыть</button>
+      <button class="btn wine sm" onclick="if(confirm('Удалить задачу?'))deleteTask('${id}')">Удалить</button>
+    </div>`;
+  document.getElementById('sheetBg').classList.add('on');
+  requestAnimationFrame(()=>document.getElementById('sheet').classList.add('on'));
+}
+function closeSheet(e){ if(e&&e.target.id!=='sheetBg'&&e.type==='click'&&e.target!==e.currentTarget) return;
+  document.getElementById('sheet').classList.remove('on');
+  setTimeout(()=>document.getElementById('sheetBg').classList.remove('on'),260); openId=null; }
+
+function toggleStage(id,sid){ const s=TASKS[id].stages[sid]; s.done=!s.done;
+  patchTask(id,{stages:TASKS[id].stages}); openTask(id); }
+function addStage(id){ const inp=document.getElementById('newStage'); const v=inp.value.trim(); if(!v)return;
+  const stages=TASKS[id].stages||{}; stages['s'+Date.now().toString(36)]={text:v,done:false};
+  patchTask(id,{stages}); openTask(id); setTimeout(()=>document.getElementById('newStage')?.focus(),50); }
+function delStage(id,sid){ const stages={...TASKS[id].stages}; delete stages[sid]; patchTask(id,{stages}); openTask(id); }
+
+function addComment(id){ if(!ME){changeName();return;}
+  const inp=document.getElementById('newComment'); const v=inp.value.trim(); if(!v)return;
+  const comments=TASKS[id].comments||{}; comments['c'+Date.now().toString(36)]={author:ME,text:v,ts:Date.now()};
+  patchTask(id,{comments}); openTask(id); }
+
+/* ---- new task ---- */
+function openNew(){
+  const id=newId();
+  document.getElementById('sheetBody').innerHTML=`
+    <h2>Новая задача</h2><div class="sub">Заполни и сохрани</div>
+    <div class="field"><label>Название</label><input id="nTitle" placeholder="Что нужно сделать"></div>
+    <div class="field"><label>Описание</label><textarea id="nDesc" placeholder="Детали (необязательно)"></textarea></div>
+    <div class="row2">
+      <div class="field"><label>Группа</label><select id="nGroup">
+        ${GROUPS.map(g=>`<option value="${g.id}">${g.name}</option>`).join('')}</select></div>
+      <div class="field"><label>Дедлайн</label><input id="nDL" type="datetime-local"></div>
+    </div>
+    <div class="field"><label>Ответственный</label><input id="nAsg" value="${esc(ME)}" placeholder="никто"></div>
+    <div class="sheet-actions">
+      <button class="btn ghost sm" onclick="closeSheet()">Отмена</button>
+      <button class="btn" style="flex:1" onclick="createTask('${id}')">Создать задачу</button>
+    </div>`;
+  document.getElementById('sheetBg').classList.add('on');
+  requestAnimationFrame(()=>{document.getElementById('sheet').classList.add('on');document.getElementById('nTitle').focus();});
+}
+function createTask(id){
+  const title=document.getElementById('nTitle').value.trim();
+  if(!title){ toast('Впиши название'); return; }
+  saveTask(id,{ title,
+    description:document.getElementById('nDesc').value.trim(),
+    group:document.getElementById('nGroup').value,
+    deadline:document.getElementById('nDL').value,
+    assignee:document.getElementById('nAsg').value.trim(),
+    done:false, stages:{}, comments:{}, created:Date.now() });
+  closeSheet(); toast('Задача добавлена');
+}
+
+/* ---- gantt ---- */
+function renderGantt(){
+  const el=document.getElementById('gantt');
+  const items=Object.entries(TASKS).filter(([,t])=>t.deadline)
+    .sort((a,b)=>a[1].deadline.localeCompare(b[1].deadline));
+  if(!items.length){ el.innerHTML='<div class="empty">Нет задач с дедлайнами</div>'; return; }
+  const dates=items.map(([,t])=>new Date(t.deadline));
+  let min=new Date(Math.min(...dates, new Date())); min.setHours(0,0,0,0);
+  let max=new Date(Math.max(...dates, new Date(EVENT_DATE)));
+  const span=Math.max(1,(max-min)/86400000);
+  const pct=d=>((new Date(d)-min)/86400000/span*100);
+
+  // header ticks (weekly)
+  let ticks=''; const days=Math.ceil(span);
+  for(let i=0;i<=days;i+=Math.max(1,Math.round(days/6))){
+    const d=new Date(min.getTime()+i*86400000);
+    ticks+=`<span style="position:absolute;left:${i/span*100}%">${d.toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit'})}</span>`;
+  }
+  let html=`<div class="g-head"><div class="g-label"></div><div class="g-track" style="position:relative;height:14px">${ticks}</div></div>`;
+  const todayPct=pct(new Date());
+  for(const [id,t] of items){
+    const g=GMAP[t.group]||{color:'#888'};
+    const left=Math.max(0,pct(t.deadline)-8), w=10;
+    html+=`<div class="g-row" onclick="openTask('${id}')">
+      <div class="g-label">${esc(t.title)}</div>
+      <div class="g-track">
+        <div class="g-today" style="left:${todayPct}%"><span class="lbl">now</span></div>
+        <div class="g-bar" style="left:${Math.min(left,90)}%;width:${w}%;background:${g.color};${t.done?'opacity:.4':''}">
+          ${fmtDate(t.deadline)}</div>
+      </div></div>`;
+  }
+  el.innerHTML=html;
+}
+
+/* ---- views ---- */
+function setView(v){
+  document.querySelectorAll('.view').forEach(x=>x.classList.remove('on'));
+  document.getElementById('v-'+v).classList.add('on');
+  document.querySelectorAll('nav button').forEach(x=>x.classList.remove('on'));
+  document.getElementById('nav-'+v).classList.add('on');
+  document.getElementById('fab').style.display = v==='board'?'grid':'none';
+  if(v==='gantt') renderGantt();
+}
+
+/* ---- boot ---- */
+initName();
+onData(render);
+if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
+</script>
+</body>
+</html>
