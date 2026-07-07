@@ -150,6 +150,14 @@ nav button svg{width:22px;height:22px}
   border:1px solid var(--line);color:var(--ink);border-radius:12px;padding:14px;outline:none}
 .gate input:focus{border-color:var(--amber)}
 .gate .btn{margin-top:14px}
+.pick-list{display:flex;flex-direction:column;gap:9px;width:100%;margin-bottom:16px}
+.pick{width:100%;font-size:17px;background:var(--card);border:1px solid var(--line);
+  color:var(--ink);border-radius:12px;padding:14px;font-weight:600}
+.pick:active{border-color:var(--amber)}
+.gate-add{display:flex;gap:8px;width:100%}
+.gate-add input{flex:1;text-align:left;font-size:15px;background:var(--card);
+  border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:11px;outline:none}
+.gate-add input:focus{border-color:var(--amber)}
 .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);
   background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:10px;font-size:13px;
   font-weight:600;z-index:200;opacity:0;transition:.25s;pointer-events:none}
@@ -161,10 +169,13 @@ nav button svg{width:22px;height:22px}
 <!-- name gate -->
 <div class="gate" id="gate">
   <div class="kicker">Welcome Drink · 17 июля</div>
-  <h1>Как тебя зовут?</h1>
-  <p>Имя будет подставляться в задачи и комментарии</p>
-  <input id="gateName" placeholder="Например, Миша" autocomplete="off">
-  <button class="btn" onclick="saveName()">Войти в задачник</button>
+  <h1>Кто ты?</h1>
+  <p>Выбери себя из списка</p>
+  <div class="pick-list" id="gateList"></div>
+  <div class="gate-add">
+    <input id="gateNew" placeholder="Новый сотрудник…" autocomplete="off">
+    <button class="btn ghost sm" onclick="addPersonGate()">Добавить</button>
+  </div>
 </div>
 
 <header>
@@ -247,32 +258,51 @@ const GMAP = Object.fromEntries(GROUPS.map(g=>[g.id,g]));
 const EVENT_DATE = '2026-07-17';
 
 let TASKS = {};       // id -> task
+let PEOPLE = [];      // список сотрудников (из базы)
 let ME = localStorage.getItem('wd_name') || '';
 let FILTER = 'all';   // all | groupId | mine | undone
 let openId = null;
 
-/* ---- name gate ---- */
+/* ---- name gate: выбор из списка ---- */
 function initName(){
   if(ME){ document.getElementById('whoName').textContent = ME; }
-  else { document.getElementById('gate').classList.add('on'); }
+  else { renderGate(); document.getElementById('gate').classList.add('on'); }
 }
-function saveName(){
-  const v=document.getElementById('gateName').value.trim();
-  if(!v){ return; }
-  ME=v; localStorage.setItem('wd_name',v);
-  document.getElementById('whoName').textContent=v;
-  document.getElementById('gate').classList.remove('on');
+function renderGate(){
+  const box=document.getElementById('gateList');
+  if(!PEOPLE.length){ box.innerHTML='<div style="color:var(--mut);font-size:13px">Список пуст. Добавь себя ниже.</div>'; }
+  else box.innerHTML=PEOPLE.map(n=>`<button class="pick" onclick="pickMe('${esc(n)}')">${esc(n)}</button>`).join('');
+}
+function pickMe(name){
+  ME=name; localStorage.setItem('wd_name',name);
+  document.getElementById('whoName').textContent=name;
+  document.getElementById('gate').classList.remove('on'); render();
+}
+function addPersonGate(){
+  const v=document.getElementById('gateNew').value.trim();
+  if(!v) return;
+  addPerson(v, ()=>{ pickMe(v); });
 }
 function changeName(){
-  const v=prompt('Как тебя зовут?', ME);
-  if(v && v.trim()){ ME=v.trim(); localStorage.setItem('wd_name',ME); document.getElementById('whoName').textContent=ME; render(); }
+  // повторно открыть выбор
+  renderGate(); document.getElementById('gate').classList.add('on');
+}
+
+/* ---- справочник людей ---- */
+function addPerson(name, cb){
+  if(!name) return;
+  if(!PEOPLE.includes(name)) PEOPLE.push(name);
+  if(USING_FIREBASE){ db.ref('people/'+name).set(true).then(()=>cb&&cb()); }
+  else { localStorage.setItem('wd_people',JSON.stringify(PEOPLE)); cb&&cb(); }
 }
 
 /* ---- data layer ---- */
 function onData(cb){
   if(USING_FIREBASE){
+    db.ref('people').on('value', s=>{ PEOPLE=Object.keys(s.val()||{}).sort(); cb(); });
     db.ref('tasks').on('value', s=>{ TASKS = s.val()||{}; cb(); });
   } else {
+    PEOPLE = JSON.parse(localStorage.getItem('wd_people')||'["Екатерина","Михаил Лапега"]');
     TASKS = JSON.parse(localStorage.getItem('wd_tasks')||'{}'); cb();
   }
 }
@@ -380,8 +410,10 @@ function openTask(id){
       <div class="field"><label>Дедлайн</label>
         <input type="datetime-local" value="${t.deadline||''}" onchange="patchTask('${id}',{deadline:this.value})"></div>
       <div class="field"><label>Ответственный</label>
-        <input value="${esc(t.assignee||'')}" placeholder="никто"
-          onchange="patchTask('${id}',{assignee:this.value})">
+        <select onchange="patchTask('${id}',{assignee:this.value})">
+          <option value="">никто</option>
+          ${PEOPLE.map(n=>`<option value="${esc(n)}" ${t.assignee===n?'selected':''}>${esc(n)}</option>`).join('')}
+        </select>
       </div>
     </div>
     <button class="btn ghost sm" style="margin:-4px 0 12px" onclick="patchTask('${id}',{assignee:ME});openTask('${id}')">Назначить себя (${esc(ME)})</button>
@@ -451,7 +483,10 @@ function openNew(){
         ${GROUPS.map(g=>`<option value="${g.id}">${g.name}</option>`).join('')}</select></div>
       <div class="field"><label>Дедлайн</label><input id="nDL" type="datetime-local"></div>
     </div>
-    <div class="field"><label>Ответственный</label><input id="nAsg" value="${esc(ME)}" placeholder="никто"></div>
+    <div class="field"><label>Ответственный</label><select id="nAsg">
+      <option value="">никто</option>
+      ${PEOPLE.map(n=>`<option value="${esc(n)}" ${ME===n?'selected':''}>${esc(n)}</option>`).join('')}
+    </select></div>
     <div class="sheet-actions">
       <button class="btn ghost sm" onclick="closeSheet()">Отмена</button>
       <button class="btn" style="flex:1" onclick="createTask('${id}')">Создать задачу</button>
