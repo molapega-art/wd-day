@@ -125,6 +125,22 @@ main{padding:6px 16px 20px}
 .g-today{position:absolute;top:0;bottom:0;width:2px;background:var(--red);z-index:5}
 .g-today .lbl{position:absolute;top:-14px;left:-14px;font-family:var(--mono);font-size:9px;color:var(--red)}
 
+/* program */
+.slot{display:flex;gap:10px;background:var(--card);border:1px solid var(--line);
+  border-radius:12px;padding:11px 12px;margin-bottom:9px;align-items:flex-start}
+.slot .time{flex:0 0 auto;display:flex;flex-direction:column;gap:4px;width:96px}
+.slot .time input{background:var(--bg2);border:1px solid var(--line);color:var(--amber2);
+  border-radius:7px;padding:5px 6px;font-family:var(--mono);font-size:12px;text-align:center;outline:none;width:100%}
+.slot .time input:focus{border-color:var(--amber)}
+.slot .time .dash{text-align:center;color:var(--mut);font-size:9px;line-height:1}
+.slot .body{flex:1;min-width:0}
+.slot .body textarea{width:100%;background:transparent;border:none;color:var(--ink);
+  font-size:14px;resize:none;outline:none;line-height:1.4;min-height:24px;font-family:inherit}
+.slot .body textarea:focus{outline:none}
+.slot .del{color:var(--mut);font-size:20px;padding:0 2px;flex:0 0 auto;line-height:1}
+.slot.now{border-color:var(--amber);box-shadow:0 0 0 1px var(--amber) inset}
+.slot .live{font-family:var(--mono);font-size:9px;color:var(--amber);letter-spacing:.1em}
+
 /* nav */
 nav{position:fixed;bottom:0;left:0;right:0;z-index:30;background:var(--bg);
   border-top:1px solid var(--line);display:flex;padding:6px 0 max(6px,env(safe-area-inset-bottom))}
@@ -201,6 +217,15 @@ nav button svg{width:22px;height:22px}
   </main>
 </div>
 
+<!-- PROGRAM -->
+<div class="view" id="v-program">
+  <main>
+    <div class="group-h" style="margin:14px 0 10px"><h2>Программа вечера · 17 июля</h2></div>
+    <div id="program"></div>
+    <button class="btn ghost full" style="margin-top:12px" onclick="addSlot()">＋ Добавить слот</button>
+  </main>
+</div>
+
 <button class="fab" id="fab" onclick="openNew()">＋</button>
 
 <nav>
@@ -211,6 +236,10 @@ nav button svg{width:22px;height:22px}
   <button id="nav-gantt" onclick="setView('gantt')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="6" x2="14" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="12" y2="18"/></svg>
     Гант
+  </button>
+  <button id="nav-program" onclick="setView('program')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+    Программа
   </button>
 </nav>
 
@@ -259,6 +288,7 @@ const EVENT_DATE = '2026-07-17';
 
 let TASKS = {};       // id -> task
 let PEOPLE = [];      // список сотрудников (из базы)
+let SCHEDULE = {};    // id -> {from,to,text}
 let ME = localStorage.getItem('wd_name') || '';
 let FILTER = 'all';   // all | groupId | mine | undone
 let openId = null;
@@ -301,10 +331,30 @@ function onData(cb){
   if(USING_FIREBASE){
     db.ref('people').on('value', s=>{ PEOPLE=Object.keys(s.val()||{}).sort(); cb(); });
     db.ref('tasks').on('value', s=>{ TASKS = s.val()||{}; cb(); });
+    db.ref('schedule').on('value', s=>{ SCHEDULE = s.val()||{}; cb(); });
   } else {
     PEOPLE = JSON.parse(localStorage.getItem('wd_people')||'["Екатерина","Михаил Лапега"]');
-    TASKS = JSON.parse(localStorage.getItem('wd_tasks')||'{}'); cb();
+    TASKS = JSON.parse(localStorage.getItem('wd_tasks')||'{}');
+    SCHEDULE = JSON.parse(localStorage.getItem('wd_schedule')||'{}'); cb();
   }
+}
+/* ---- schedule data ---- */
+function saveSlot(id,slot){
+  if(USING_FIREBASE){ db.ref('schedule/'+id).set(slot); }
+  else { SCHEDULE[id]=slot; localStorage.setItem('wd_schedule',JSON.stringify(SCHEDULE)); renderProgram(); }
+}
+function patchSlot(id,obj){ saveSlot(id,{...SCHEDULE[id],...obj}); }
+function delSlot(id){
+  if(!confirm('Удалить слот?')) return;
+  if(USING_FIREBASE){ db.ref('schedule/'+id).remove(); }
+  else { delete SCHEDULE[id]; localStorage.setItem('wd_schedule',JSON.stringify(SCHEDULE)); renderProgram(); }
+}
+function addSlot(){
+  const id='sl'+Date.now().toString(36);
+  // подставим время после последнего слота
+  const slots=Object.values(SCHEDULE).sort((a,b)=>(a.from||'').localeCompare(b.from||''));
+  const last=slots[slots.length-1];
+  saveSlot(id,{from:last?last.to||'':'16:00',to:'',text:'',order:Date.now()});
 }
 function saveTask(id,t){
   if(USING_FIREBASE){ db.ref('tasks/'+id).set(t); }
@@ -343,7 +393,7 @@ function taskMatches(t){
   if(FILTER==='undone') return !t.done;
   return t.group===FILTER;
 }
-function render(){ renderFilters(); renderBoard(); renderGantt(); }
+function render(){ renderFilters(); renderBoard(); renderGantt(); renderProgram(); }
 function renderBoard(){
   const board=document.getElementById('board');
   const all=Object.entries(TASKS);
@@ -548,6 +598,37 @@ function setView(v){
   document.getElementById('nav-'+v).classList.add('on');
   document.getElementById('fab').style.display = v==='board'?'grid':'none';
   if(v==='gantt') renderGantt();
+  if(v==='program') renderProgram();
+}
+
+/* ---- render program ---- */
+function renderProgram(){
+  const el=document.getElementById('program');
+  if(!el) return;
+  const slots=Object.entries(SCHEDULE)
+    .sort((a,b)=>(a[1].from||'zz').localeCompare(b[1].from||'zz') || (a[1].order||0)-(b[1].order||0));
+  if(!slots.length){ el.innerHTML='<div class="empty">Программа пока пуста.<br>Нажми «Добавить слот».</div>'; return; }
+  const now=new Date(), hm=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  const isEventDay = now.toISOString().slice(0,10)==='2026-07-17';
+  el.innerHTML=slots.map(([id,s])=>{
+    const live = isEventDay && s.from && s.to && s.from<=hm && hm<s.to;
+    return `<div class="slot ${live?'now':''}">
+      <div class="time">
+        <input type="time" value="${s.from||''}" onchange="patchSlot('${id}',{from:this.value})">
+        <span class="dash">▼</span>
+        <input type="time" value="${s.to||''}" onchange="patchSlot('${id}',{to:this.value})">
+        ${live?'<span class="live">● СЕЙЧАС</span>':''}
+      </div>
+      <div class="body">
+        <textarea rows="1" placeholder="Что происходит, кто выступает…"
+          oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"
+          onchange="patchSlot('${id}',{text:this.value})">${esc(s.text||'')}</textarea>
+      </div>
+      <button class="del" onclick="delSlot('${id}')">×</button>
+    </div>`;
+  }).join('');
+  // авто-высота textarea
+  el.querySelectorAll('textarea').forEach(t=>{ t.style.height='auto'; t.style.height=t.scrollHeight+'px'; });
 }
 
 /* ---- boot ---- */
