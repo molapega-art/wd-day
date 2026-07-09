@@ -140,6 +140,9 @@ main{padding:6px 16px 20px}
 .slot .del{color:var(--mut);font-size:20px;padding:0 2px;flex:0 0 auto;line-height:1}
 .slot.now{border-color:var(--amber);box-shadow:0 0 0 1px var(--amber) inset}
 .slot .live{font-family:var(--mono);font-size:9px;color:var(--amber);letter-spacing:.1em}
+.slot.clash{border-color:var(--red);background:rgba(200,90,78,.10)}
+.slot.clash .time input{border-color:var(--red);color:var(--red)}
+.slot .clashlbl{font-family:var(--mono);font-size:9px;color:var(--red);letter-spacing:.05em;margin-top:2px}
 
 /* nav */
 nav{position:fixed;bottom:0;left:0;right:0;z-index:30;background:var(--bg);
@@ -608,16 +611,35 @@ function renderProgram(){
   const slots=Object.entries(SCHEDULE)
     .sort((a,b)=>(a[1].from||'zz').localeCompare(b[1].from||'zz') || (a[1].order||0)-(b[1].order||0));
   if(!slots.length){ el.innerHTML='<div class="empty">Программа пока пуста.<br>Нажми «Добавить слот».</div>'; return; }
+
+  // минуты с учётом "ночных" часов (00:00–03:00 → +24ч, чтобы шли после 23:00)
+  const toMin=(t)=>{ if(!t) return null; let[h,m]=t.split(':').map(Number); if(h<6) h+=24; return h*60+m; };
+
+  // детекция конфликтов: слот пересекается со следующим, если его конец > начала следующего
+  const conflict={};
+  for(let i=0;i<slots.length;i++){
+    const [idA,a]=slots[i]; const aFrom=toMin(a.from), aTo=toMin(a.to);
+    for(let j=i+1;j<slots.length;j++){
+      const [idB,b]=slots[j]; const bFrom=toMin(b.from), bTo=toMin(b.to);
+      if(aFrom==null||bFrom==null) continue;
+      const aEnd=aTo!=null?aTo:aFrom, bEnd=bTo!=null?bTo:bFrom;
+      // пересечение интервалов [aFrom,aEnd) и [bFrom,bEnd)
+      if(aFrom < bEnd && bFrom < aEnd){ conflict[idA]=true; conflict[idB]=true; }
+    }
+  }
+
   const now=new Date(), hm=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
   const isEventDay = now.toISOString().slice(0,10)==='2026-07-17';
   el.innerHTML=slots.map(([id,s])=>{
     const live = isEventDay && s.from && s.to && s.from<=hm && hm<s.to;
-    return `<div class="slot ${live?'now':''}">
+    const clash = conflict[id];
+    return `<div class="slot ${live?'now':''} ${clash?'clash':''}">
       <div class="time">
         <input type="time" value="${s.from||''}" onchange="patchSlot('${id}',{from:this.value})">
         <span class="dash">▼</span>
         <input type="time" value="${s.to||''}" onchange="patchSlot('${id}',{to:this.value})">
         ${live?'<span class="live">● СЕЙЧАС</span>':''}
+        ${clash?'<span class="clashlbl">⚠ наложение</span>':''}
       </div>
       <div class="body">
         <textarea rows="1" placeholder="Что происходит, кто выступает…"
@@ -627,7 +649,6 @@ function renderProgram(){
       <button class="del" onclick="delSlot('${id}')">×</button>
     </div>`;
   }).join('');
-  // авто-высота textarea
   el.querySelectorAll('textarea').forEach(t=>{ t.style.height='auto'; t.style.height=t.scrollHeight+'px'; });
 }
 
